@@ -31,7 +31,7 @@ export default {
       });
 
       return testResult("Item exists with expected values", true);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.log(e);
 
       return testResult("Item with specified keys does not exist.", false);
