@@ -2,12 +2,14 @@ import { CognitoIdentityServiceProvider } from "aws-sdk";
 import { AWSClient } from "./general";
 import { Chance } from "chance";
 import { AttributeType } from "aws-sdk/clients/cognitoidentityserviceprovider";
+import jsf from "json-schema-faker";
 
 interface User {
   username: string;
   password: string;
   confirmed?: boolean | undefined;
   standardAttributes?: StandardAttributes;
+  customAttributes?: { [attribute: string]: string };
 }
 
 interface CreateUserInput {
@@ -15,6 +17,7 @@ interface CreateUserInput {
   userPoolId: string;
   confirmed: boolean;
   standardAttributes?: Array<keyof StandardAttributes>;
+  customAttributes?: { [key: string]: unknown };
 }
 
 interface ConfirmUserInput {
@@ -85,7 +88,7 @@ const createUser = async (
     country: country,
   };
 
-  const allAttributes: StandardAttributes = {
+  const allStandardAttributes: StandardAttributes = {
     email: chance.email(),
     birthdate: chance.date().toISOString().split("T")[0],
     family_name: familyName,
@@ -105,26 +108,32 @@ const createUser = async (
     updated_at: String(chance.timestamp()),
   };
 
-  console.log(allAttributes.birthdate);
+  const attributesArg: AttributeType[] = [];
+  jsf.extend("chance", () => new Chance());
+  if (createUserInput.customAttributes !== undefined) {
+    Object.entries(createUserInput.customAttributes).forEach(([key, val]) => {
+      attributesArg.push({
+        Name: "custom:" + key,
+        Value: jsf.generate({ type: val }),
+      });
+    });
+  }
 
-  console.log(createUserInput.standardAttributes);
-
-  const attributes: Array<AttributeType> | undefined =
-    createUserInput.standardAttributes?.map(
-      (attribute: keyof StandardAttributes) => {
-        return {
-          Name: attribute,
-          Value: allAttributes[attribute],
-        };
-      }
-    );
+  createUserInput.standardAttributes?.forEach(
+    (attribute: keyof StandardAttributes) => {
+      attributesArg.push({
+        Name: attribute,
+        Value: allStandardAttributes[attribute],
+      });
+    }
+  );
 
   try {
     const signUpParams: CognitoIdentityServiceProvider.Types.SignUpRequest = {
       ClientId: createUserInput.clientId,
       Username: username,
       Password: password,
-      UserAttributes: attributes,
+      UserAttributes: attributesArg,
     };
     console.log(signUpParams);
     await cognitoClient.signUp(signUpParams).promise();
