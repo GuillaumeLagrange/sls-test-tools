@@ -59,6 +59,8 @@ export default class StepFunctions {
       executionList = await this.stepFunctions
         .listExecutions(listExecParams)
         .promise();
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
 
     return await this.stepFunctions
